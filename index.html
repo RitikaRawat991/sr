@@ -1,1 +1,1046 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Maritime Route Optimizer - Dynamic Calculations</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --primary-color: #1a73e8;
+            --secondary-color: #0d47a1;
+            --accent-color: #4fc3f7;
+            --warning-color: #ff9800;
+            --danger-color: #f44336;
+            --success-color: #4caf50;
+            --light-bg: #f5f7fa;
+            --dark-text: #202124;
+            --light-text: #ffffff;
+            --border-color: #dadce0;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background-color: var(--light-bg);
+            color: var(--dark-text);
+            line-height: 1.6;
+        }
+        
+        .container {
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            grid-template-rows: 70px 1fr 30px;
+            grid-template-areas: 
+                "header header"
+                "sidebar main"
+                "footer footer";
+            height: 100vh;
+        }
+        
+        header {
+            grid-area: header;
+            background-color: var(--primary-color);
+            color: var(--light-text);
+            padding: 0 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .logo-icon {
+            font-size: 24px;
+        }
+        
+        .header-controls {
+            display: flex;
+            gap: 15px;
+        }
+        
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary {
+            background-color: var(--secondary-color);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background-color: #0b3d91;
+        }
+        
+        .btn-outline {
+            background-color: transparent;
+            border: 1px solid white;
+            color: white;
+        }
+        
+        .btn-outline:hover {
+            background-color: rgba(255,255,255,0.1);
+        }
+        
+        sidebar {
+            grid-area: sidebar;
+            background-color: white;
+            padding: 20px;
+            overflow-y: auto;
+            border-right: 1px solid var(--border-color);
+        }
+        
+        .sidebar-section {
+            margin-bottom: 25px;
+        }
+        
+        .sidebar-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 15px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .input-group {
+            margin-bottom: 15px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        
+        input, select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+        
+        .checkbox-group input {
+            width: auto;
+        }
+        
+        .speed-control {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .speed-slider {
+            flex-grow: 1;
+        }
+        
+        .speed-value {
+            min-width: 50px;
+            text-align: center;
+            font-weight: bold;
+            color: var(--primary-color);
+        }
+        
+        main {
+            grid-area: main;
+            padding: 20px;
+            overflow-y: auto;
+        }
+        
+        .dashboard {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: auto auto 1fr;
+            gap: 20px;
+            height: 100%;
+        }
+        
+        .map-container {
+            grid-column: 1 / -1;
+            height: 400px;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        #map {
+            height: 100%;
+            width: 100%;
+        }
+        
+        .card {
+            background-color: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .card-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .weather-info {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        
+        .weather-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 10px;
+            background-color: var(--light-bg);
+            border-radius: 6px;
+            min-width: 80px;
+        }
+        
+        .weather-value {
+            font-size: 18px;
+            font-weight: 600;
+            margin: 5px 0;
+        }
+        
+        .weather-label {
+            font-size: 12px;
+            color: #5f6368;
+        }
+        
+        .route-info {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        
+        .info-item {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .info-value {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--primary-color);
+        }
+        
+        .info-label {
+            font-size: 12px;
+            color: #5f6368;
+        }
+        
+        .chart-container {
+            height: 250px;
+            position: relative;
+        }
+        
+        footer {
+            grid-area: footer;
+            background-color: var(--primary-color);
+            color: var(--light-text);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        
+        .status-active {
+            background-color: var(--success-color);
+        }
+        
+        .status-inactive {
+            background-color: var(--danger-color);
+        }
+        
+        .timeline-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .timeline-slider {
+            flex-grow: 1;
+        }
+        
+        .route-options {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .route-option {
+            padding: 8px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        .route-option.active {
+            background-color: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+        }
+        
+        .route-comparison {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 15px;
+            gap: 15px;
+        }
+        
+        .route-card {
+            flex: 1;
+            padding: 15px;
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+        }
+        
+        .route-card.primary {
+            border-left: 4px solid var(--primary-color);
+        }
+        
+        .route-card.alternate {
+            border-left: 4px solid var(--danger-color);
+        }
+        
+        .route-card h4 {
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        @media (max-width: 1024px) {
+            .container {
+                grid-template-columns: 1fr;
+                grid-template-areas: 
+                    "header"
+                    "main"
+                    "footer";
+            }
+            
+            sidebar {
+                display: none;
+            }
+            
+            .dashboard {
+                grid-template-columns: 1fr;
+            }
+            
+            .route-comparison {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="logo">
+                <div class="logo-icon">⛵</div>
+                <h1>Maritime Route Optimizer</h1>
+            </div>
+            <div class="header-controls">
+                <button class="btn btn-outline">Help</button>
+                <button class="btn btn-primary">Save Route</button>
+            </div>
+        </header>
+        
+        <sidebar>
+            <div class="sidebar-section">
+                <h2 class="sidebar-title">🛳️ Vessel Details</h2>
+                <div class="input-group">
+                    <label for="vessel-type">Vessel Type</label>
+                    <select id="vessel-type">
+                        <option value="container">Container Ship</option>
+                        <option value="tanker">Tanker</option>
+                        <option value="bulk">Bulk Carrier</option>
+                        <option value="roro">Ro-Ro</option>
+                    </select>
+                </div>
+                <div class="input-group">
+                    <label for="vessel-size">Vessel Size (TEU/DWT)</label>
+                    <input type="number" id="vessel-size" value="5000">
+                </div>
+                <div class="input-group">
+                    <label for="max-speed">Max Speed (knots)</label>
+                    <input type="number" id="max-speed" value="24">
+                </div>
+                
+                <div class="speed-control">
+                    <label>Speed Setting:</label>
+                    <input type="range" id="speed-setting" class="speed-slider" min="10" max="24" value="18" step="0.5">
+                    <div class="speed-value" id="speed-value">18 kt</div>
+                </div>
+            </div>
+            
+            <div class="sidebar-section">
+                <h2 class="sidebar-title">🌊 Weather Settings</h2>
+                <div class="checkbox-group">
+                    <input type="checkbox" id="wind-data" checked>
+                    <label for="wind-data">Include Wind Data</label>
+                </div>
+                <div class="checkbox-group">
+                    <input type="checkbox" id="currents-data" checked>
+                    <label for="currents-data">Include Currents</label>
+                </div>
+                <div class="checkbox-group">
+                    <input type="checkbox" id="waves-data" checked>
+                    <label for="waves-data">Include Wave Data</label>
+                </div>
+                <div class="input-group">
+                    <label for="weather-forecast">Forecast Days</label>
+                    <select id="weather-forecast">
+                        <option value="3">3 Days</option>
+                        <option value="5" selected>5 Days</option>
+                        <option value="7">7 Days</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="sidebar-section">
+                <h2 class="sidebar-title">⚙️ Optimization Parameters</h2>
+                <div class="input-group">
+                    <label for="fuel-cost">Fuel Cost ($/ton)</label>
+                    <input type="number" id="fuel-cost" value="650">
+                </div>
+                <div class="input-group">
+                    <label for="time-value">Time Value ($/hour)</label>
+                    <input type="number" id="time-value" value="500">
+                </div>
+                <div class="input-group">
+                    <label for="safety-margin">Safety Margin (%)</label>
+                    <input type="number" id="safety-margin" value="15">
+                </div>
+                <div class="checkbox-group">
+                    <input type="checkbox" id="avoid-storms" checked>
+                    <label for="avoid-storms">Avoid Storm Areas</label>
+                </div>
+            </div>
+            
+            <div class="sidebar-section">
+                <h2 class="sidebar-title">📅 Voyage Planning</h2>
+                <div class="input-group">
+                    <label for="route-select">Select Predefined Route</label>
+                    <select id="route-select">
+                        <option value="suez">Suez Canal Route</option>
+                        <option value="panama">Panama Canal Route</option>
+                        <option value="capetown">Cape Town Route</option>
+                        <option value="transpacific">Transpacific Route</option>
+                    </select>
+                </div>
+                <div class="input-group">
+                    <label for="departure-time">Departure Time</label>
+                    <input type="datetime-local" id="departure-time">
+                </div>
+                <div class="checkbox-group">
+                    <input type="checkbox" id="show-alternate" checked>
+                    <label for="show-alternate">Show Alternate Route via Cape Town</label>
+                </div>
+                <button class="btn btn-primary" style="width: 100%; margin-top: 15px;" id="calculate-route">Calculate Optimal Route</button>
+            </div>
+        </sidebar>
+        
+        <main>
+            <div class="dashboard">
+                <div class="map-container card">
+                    <div id="map"></div>
+                </div>
+                
+                <div class="card">
+                    <h3 class="card-title">🌤️ Current Weather Conditions</h3>
+                    <div class="weather-info">
+                        <div class="weather-item">
+                            <div>💨</div>
+                            <div class="weather-value">15 kt</div>
+                            <div class="weather-label">Wind Speed</div>
+                        </div>
+                        <div class="weather-item">
+                            <div>🧭</div>
+                            <div class="weather-value">NE</div>
+                            <div class="weather-label">Wind Direction</div>
+                        </div>
+                        <div class="weather-item">
+                            <div>🌊</div>
+                            <div class="weather-value">2.5 m</div>
+                            <div class="weather-label">Wave Height</div>
+                        </div>
+                        <div class="weather-item">
+                            <div>↗️</div>
+                            <div class="weather-value">1.2 kt</div>
+                            <div class="weather-label">Current Speed</div>
+                        </div>
+                        <div class="weather-item">
+                            <div>🌡️</div>
+                            <div class="weather-value">18°C</div>
+                            <div class="weather-label">Temperature</div>
+                        </div>
+                        <div class="weather-item">
+                            <div>👁️</div>
+                            <div class="weather-value">12 NM</div>
+                            <div class="weather-label">Visibility</div>
+                        </div>
+                    </div>
+                    
+                    <div class="timeline-controls">
+                        <button class="btn btn-outline">⏪</button>
+                        <input type="range" class="timeline-slider" min="0" max="100" value="50">
+                        <button class="btn btn-outline">⏩</button>
+                        <span>+24 hours</span>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <h3 class="card-title">🛣️ Route Information</h3>
+                    <div class="route-info">
+                        <div class="info-item">
+                            <div class="info-value">3,450 NM</div>
+                            <div class="info-label">Total Distance</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-value" id="duration-value">12.4 d</div>
+                            <div class="info-label">Estimated Duration</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-value" id="total-cost-value">$142,300</div>
+                            <div class="info-label">Total Cost</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-value" id="fuel-cost-value">$128,100</div>
+                            <div class="info-label">Fuel Cost</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-value" id="speed-value-display">18.2 kt</div>
+                            <div class="info-label">Average Speed</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-value">+5.4%</div>
+                            <div class="info-label">Efficiency Gain</div>
+                        </div>
+                    </div>
+                    
+                    <div class="route-options">
+                        <div class="route-option active" data-route="optimized">Optimized</div>
+                        <div class="route-option" data-route="shortest">Shortest Path</div>
+                        <div class="route-option" data-route="safest">Safest Route</div>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <h3 class="card-title">📈 Route Comparison</h3>
+                    <div class="route-comparison">
+                        <div class="route-card primary">
+                            <h4>🔵 Primary Route (Suez)</h4>
+                            <div class="info-item">
+                                <div class="info-value">3,450 NM</div>
+                                <div class="info-label">Distance</div>
+                            </div>
+                            <div class="info-item">
+                                <div class="info-value" id="comparison-duration">12.4 days</div>
+                                <div class="info-label">Duration</div>
+                            </div>
+                            <div class="info-item">
+                                <div class="info-value" id="comparison-total-cost">$142,300</div>
+                                <div class="info-label">Total Cost</div>
+                            </div>
+                            <div class="info-item">
+                                <div class="info-value">Low</div>
+                                <div class="info-label">Weather Risk</div>
+                            </div>
+                        </div>
+                        
+                        <div class="route-card alternate">
+                            <h4>🔴 Alternate Route (Cape Town)</h4>
+                            <div class="info-item">
+                                <div class="info-value">4,800 NM</div>
+                                <div class="info-label">Distance</div>
+                            </div>
+                            <div class="info-item">
+                                <div class="info-value">16.5 days</div>
+                                <div class="info-label">Duration</div>
+                            </div>
+                            <div class="info-item">
+                                <div class="info-value">$187,600</div>
+                                <div class="info-label">Total Cost</div>
+                            </div>
+                            <div class="info-item">
+                                <div class="info-value">Moderate</div>
+                                <div class="info-label">Weather Risk</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <h3 class="card-title">⚠️ Weather Alerts & Recommendations</h3>
+                    <div style="margin-top: 15px;">
+                        <div style="display: flex; align-items: center; margin-bottom: 10px;">
+                            <span class="status-indicator status-active"></span>
+                            <span>Moderate weather conditions for next 48 hours</span>
+                        </div>
+                        <div style="display: flex; align-items: center; margin-bottom: 10px;">
+                            <span class="status-indicator status-inactive"></span>
+                            <span>Storm warning in North Atlantic - route adjusted</span>
+                        </div>
+                        <div style="display: flex; align-items: center; margin-bottom: 10px;">
+                            <span class="status-indicator status-active"></span>
+                            <span>Currents favorable in Mediterranean Sea</span>
+                        </div>
+                        <div style="margin-top: 20px; padding: 10px; background-color: #e8f5e9; border-radius: 6px;">
+                            <strong>Recommendation:</strong> Suez Canal route is currently optimal. Cape Town alternate route available if Suez congestion increases.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+        
+        <footer>
+            <span>Maritime Weather-Integrated Route Optimizer | © 2023 Maritime Solutions Inc.</span>
+        </footer>
+    </div>
 
+    <script>
+        // Predefined maritime routes with accurate sea coordinates (avoiding land)
+        const maritimeRoutes = {
+            suez: [
+                [51.96, 4.09],   // Rotterdam
+                [51.5, 3.2],     // North Sea exit
+                [50.1, -1.8],    // English Channel
+                [49.0, -5.0],    // Western Approaches
+                [47.0, -8.5],    // Bay of Biscay
+                [40.0, -10.0],   // West of Portugal
+                [36.0, -7.5],    // Gulf of Cadiz
+                [36.0, -6.0],    // Approach to Gibraltar
+                [35.9, -5.7],    // Strait of Gibraltar
+                [35.8, -4.5],    // Alboran Sea (near Oran but not stopping)
+                [36.5, -2.0],    // Alboran Sea - between Spain and Africa
+                [37.0, 1.0],     // Algerian Basin - avoiding coastal approach
+                [38.0, 4.0],     // Balearic Sea - between Palma and Algeria
+                [38.5, 6.0],     // South of Sardinia
+                [38.0, 8.0],     // Strait of Sicily
+                [36.5, 12.0],    // Central Mediterranean
+                [35.5, 15.0],    // Ionian Sea
+                [34.5, 18.0],    // Approach to Greece
+                [34.0, 24.0],    // Eastern Mediterranean
+                [31.3, 32.3],    // Approach to Suez
+                [29.9, 32.6],    // Suez Canal
+                [27.2, 33.9],    // Red Sea
+                [22.0, 38.5],    // Central Red Sea
+                [15.2, 42.2],    // Southern Red Sea
+                [12.7, 43.5],    // Gulf of Aden
+                [10.4, 51.3],    // Arabian Sea
+                [7.0, 72.0],     // Maldives
+                [1.35, 103.82]   // Singapore
+            ],
+            panama: [
+                [51.96, 4.09],   // Rotterdam
+                [51.5, 3.2],     // North Sea exit
+                [50.1, -1.8],    // English Channel
+                [49.0, -5.0],    // Western Approaches
+                [47.0, -8.5],    // Bay of Biscay
+                [40.0, -15.0],   // Mid-Atlantic
+                [35.0, -25.0],   // Central Atlantic
+                [30.0, -35.0],   // West Atlantic
+                [25.0, -45.0],   // Approach to Caribbean
+                [20.0, -60.0],   // Caribbean Sea
+                [15.0, -70.0],   // Approach to Panama
+                [9.4, -79.9],    // Panama Canal
+                [8.9, -79.6],    // Pacific side
+                [5.0, -82.0],    // East Pacific
+                [0.0, -90.0],    // Central Pacific
+                [-5.0, -100.0],  // South Pacific
+                [-10.0, -110.0], // Approach to Polynesia
+                [-15.0, 130.0],  // North of Australia
+                [-10.0, 120.0],  // Indonesian Archipelago
+                [1.35, 103.82]   // Singapore
+            ],
+            capetown: [
+                [51.96, 4.09],   // Rotterdam
+                [51.5, 3.2],     // North Sea exit
+                [50.1, -1.8],    // English Channel
+                [49.0, -5.0],    // Western Approaches
+                [47.0, -8.5],    // Bay of Biscay
+                [40.0, -15.0],   // Mid-Atlantic
+                [35.0, -20.0],   // North Atlantic
+                [30.0, -25.0],   // Central Atlantic
+                [25.0, -30.0],   // South Atlantic
+                [20.0, -25.0],   // Approach to Africa
+                [15.0, -20.0],   // West Africa
+                [10.0, -15.0],   // Gulf of Guinea
+                [5.0, -5.0],     // Equatorial Atlantic
+                [0.0, 0.0],      // Prime Meridian
+                [-5.0, 5.0],     // South Equatorial
+                [-15.0, 10.0],   // Benguela Current
+                [-25.0, 12.0],   // Namibia
+                [-33.9, 18.4],   // Cape Town
+                [-35.0, 20.0],   // Agulhas Current
+                [-30.0, 35.0],   // South Indian Ocean
+                [-25.0, 50.0],   // Central Indian Ocean
+                [-15.0, 65.0],   // North Indian Ocean
+                [-5.0, 80.0],    // Bay of Bengal
+                [1.35, 103.82]   // Singapore
+            ],
+            transpacific: [
+                [35.68, 139.76], // Tokyo
+                [34.0, 140.0],   // East of Japan
+                [32.0, 145.0],   // West Pacific
+                [30.0, 155.0],   // Central Pacific
+                [28.0, 165.0],   // International Date Line
+                [30.0, -165.0],  // East Pacific
+                [32.0, -155.0],  // Approach to Hawaii
+                [34.0, -145.0],  // North of Hawaii
+                [36.0, -135.0],  // East Pacific
+                [38.0, -130.0],  // Approach to US West Coast
+                [40.0, -125.0],  // Northern California
+                [37.77, -122.41] // San Francisco
+            ]
+        };
+
+        // Route distances in nautical miles
+        const routeDistances = {
+            suez: 3450,
+            panama: 5200,
+            capetown: 4800,
+            transpacific: 2900
+        };
+
+        // Initialize map
+        const map = L.map('map').setView([37, 5], 5);
+        
+        // Add base map layer
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(map);
+        
+        // Add weather overlay (simulated)
+        const weatherOverlay = L.rectangle([[40, -20], [20, 20]], {
+            color: '#ff9800',
+            fillColor: '#fff3e0',
+            fillOpacity: 0.5,
+            weight: 1
+        }).addTo(map);
+        
+        weatherOverlay.bindPopup('Moderate weather zone<br>Wind: 15-20 kt<br>Waves: 2-3 m');
+        
+        // Add markers for major ports and strategic points
+        const ports = {
+            rotterdam: [51.96, 4.09],
+            singapore: [1.35, 103.82],
+            tokyo: [35.68, 139.76],
+            sanfrancisco: [37.77, -122.41],
+            suez: [30.0, 32.5],
+            panama: [9.0, -79.5],
+            capetown: [-33.92, 18.42],
+            gibraltar: [36.12, -5.35],
+            palma: [39.57, 2.65],
+            sicily: [37.50, 14.00]
+        };
+        
+        // Create port markers
+        for (const [name, coords] of Object.entries(ports)) {
+            const marker = L.marker(coords).addTo(map);
+            if (name === 'gibraltar') {
+                marker.bindPopup('Strait of Gibraltar<br>Key chokepoint between Atlantic and Mediterranean');
+            } else if (name === 'palma') {
+                marker.bindPopup('Palma, Mallorca<br>Major port in Balearic Islands');
+            } else if (name === 'sicily') {
+                marker.bindPopup('Strait of Sicily<br>Important passage between Eastern and Western Mediterranean');
+            } else {
+                marker.bindPopup(name.charAt(0).toUpperCase() + name.slice(1));
+            }
+        }
+        
+        // Draw the initial route (Suez by default)
+        let currentRoute = 'suez';
+        let routeLine = L.polyline(maritimeRoutes[currentRoute], {
+            color: '#1a73e8',
+            weight: 4,
+            opacity: 0.9
+        }).addTo(map);
+        
+        // Draw alternate Cape Town route
+        let alternateRouteLine = L.polyline(maritimeRoutes.capetown, {
+            color: '#f44336',
+            weight: 3,
+            opacity: 0.7,
+            dashArray: '10, 10',
+            className: 'alternate-route'
+        }).addTo(map);
+        
+        // Add waypoint markers for primary route
+        const waypointMarkers = [];
+        maritimeRoutes[currentRoute].forEach((point, index) => {
+            if (index === 0 || index === maritimeRoutes[currentRoute].length - 1) return; // Skip start and end
+            if (index % 3 === 0) { // Add markers for every 3rd point
+                const marker = L.marker(point, {
+                    icon: L.divIcon({
+                        className: 'waypoint-marker',
+                        html: '<div style="background-color:#1a73e8; width:12px; height:12px; border-radius:50%; border:2px solid white; box-shadow:0 0 0 3px #1a73e8"></div>',
+                        iconSize: [12, 12],
+                        iconAnchor: [6, 6]
+                    })
+                }).addTo(map);
+                marker.bindPopup(`Waypoint ${index}<br>Lat: ${point[0].toFixed(2)}, Lng: ${point[1].toFixed(2)}`);
+                waypointMarkers.push(marker);
+            }
+        });
+        
+        // Add waypoint markers for alternate route
+        const alternateWaypointMarkers = [];
+        maritimeRoutes.capetown.forEach((point, index) => {
+            if (index === 0 || index === maritimeRoutes.capetown.length - 1) return; // Skip start and end
+            if (index % 4 === 0) { // Add markers for every 4th point
+                const marker = L.marker(point, {
+                    icon: L.divIcon({
+                        className: 'alternate-waypoint-marker',
+                        html: '<div style="background-color:#f44336; width:10px; height:10px; border-radius:50%; border:2px solid white; box-shadow:0 0 0 2px #f44336"></div>',
+                        iconSize: [10, 10],
+                        iconAnchor: [5, 5]
+                    })
+                }).addTo(map);
+                marker.bindPopup(`Alternate Waypoint ${index}<br>Lat: ${point[0].toFixed(2)}, Lng: ${point[1].toFixed(2)}`);
+                alternateWaypointMarkers.push(marker);
+            }
+        });
+        
+        // Fit map to show both routes
+        const allPoints = [...maritimeRoutes.suez, ...maritimeRoutes.capetown];
+        const bounds = L.latLngBounds(allPoints);
+        map.fitBounds(bounds);
+        
+        // Set current date and time for departure
+        const now = new Date();
+        const formattedNow = now.toISOString().slice(0, 16);
+        document.getElementById('departure-time').value = formattedNow;
+        
+        // Speed adjustment handler
+        const speedSlider = document.getElementById('speed-setting');
+        const speedValue = document.getElementById('speed-value');
+        
+        speedSlider.addEventListener('input', function() {
+            const speed = parseFloat(this.value);
+            speedValue.textContent = speed.toFixed(1) + ' kt';
+            updateRouteCalculations();
+        });
+        
+        // Fuel cost change handler
+        document.getElementById('fuel-cost').addEventListener('input', function() {
+            updateRouteCalculations();
+        });
+        
+        // Time value change handler
+        document.getElementById('time-value').addEventListener('input', function() {
+            updateRouteCalculations();
+        });
+        
+        // Route selection handler
+        document.getElementById('route-select').addEventListener('change', function() {
+            currentRoute = this.value;
+            updateRouteVisualization();
+            updateRouteCalculations();
+        });
+        
+        // Function to update route calculations based on all parameters
+        function updateRouteCalculations() {
+            const distance = routeDistances[currentRoute];
+            const speed = parseFloat(speedSlider.value);
+            const fuelCostPerTon = parseFloat(document.getElementById('fuel-cost').value);
+            const timeValue = parseFloat(document.getElementById('time-value').value);
+            
+            // Calculate duration
+            const duration = distance / speed; // Duration in hours
+            const durationDays = (duration / 24).toFixed(1);
+            
+            // Calculate fuel consumption (simplified model)
+            const baseFuelConsumption = distance * 0.5; // Base consumption in tons
+            const speedEfficiency = 24 / speed; // Higher speed = lower efficiency
+            const fuelConsumption = baseFuelConsumption * speedEfficiency;
+            
+            // Calculate fuel cost
+            const fuelCost = fuelConsumption * fuelCostPerTon;
+            
+            // Calculate time cost
+            const timeCost = duration * timeValue;
+            
+            // Calculate total cost
+            const totalCost = fuelCost + timeCost;
+            
+            // Update displays
+            document.getElementById('duration-value').textContent = durationDays + ' d';
+            document.getElementById('comparison-duration').textContent = durationDays + ' days';
+            document.getElementById('speed-value-display').textContent = speed.toFixed(1) + ' kt';
+            document.getElementById('fuel-cost-value').textContent = '$' + Math.round(fuelCost).toLocaleString();
+            document.getElementById('total-cost-value').textContent = '$' + Math.round(totalCost).toLocaleString();
+            document.getElementById('comparison-total-cost').textContent = '$' + Math.round(totalCost).toLocaleString();
+        }
+        
+        // Toggle alternate route visibility
+        document.getElementById('show-alternate').addEventListener('change', function() {
+            if (this.checked) {
+                map.addLayer(alternateRouteLine);
+                alternateWaypointMarkers.forEach(marker => map.addLayer(marker));
+            } else {
+                map.removeLayer(alternateRouteLine);
+                alternateWaypointMarkers.forEach(marker => map.removeLayer(marker));
+            }
+        });
+        
+        // Route option click handler
+        document.querySelectorAll('.route-option').forEach(option => {
+            option.addEventListener('click', function() {
+                document.querySelectorAll('.route-option').forEach(opt => opt.classList.remove('active'));
+                this.classList.add('active');
+                
+                // In a real app, this would recalculate the route based on the selected option
+                alert(`Recalculating route with ${this.dataset.route} parameters...`);
+            });
+        });
+        
+        // Calculate route button handler
+        document.getElementById('calculate-route').addEventListener('click', function() {
+            const vesselType = document.getElementById('vessel-type').value;
+            const weatherForecast = document.getElementById('weather-forecast').value;
+            const avoidStorms = document.getElementById('avoid-storms').checked;
+            const speed = parseFloat(speedSlider.value);
+            
+            alert(`Calculating optimal ${currentRoute} route for ${vesselType} vessel at ${speed} knots with ${weatherForecast}-day forecast...`);
+            
+            // Update calculations
+            updateRouteCalculations();
+            
+            // Simulate route adjustment based on weather
+            simulateWeatherImpact();
+        });
+        
+        // Function to update the route visualization
+        function updateRouteVisualization() {
+            // Remove existing route and waypoints
+            map.removeLayer(routeLine);
+            waypointMarkers.forEach(marker => map.removeLayer(marker));
+            waypointMarkers.length = 0;
+            
+            // Draw new route
+            const newRoute = L.polyline(maritimeRoutes[currentRoute], {
+                color: '#1a73e8',
+                weight: 4,
+                opacity: 0.9
+            }).addTo(map);
+            
+            // Add new waypoint markers
+            maritimeRoutes[currentRoute].forEach((point, index) => {
+                if (index === 0 || index === maritimeRoutes[currentRoute].length - 1) return;
+                if (index % 3 === 0) {
+                    const marker = L.marker(point, {
+                        icon: L.divIcon({
+                            className: 'waypoint-marker',
+                            html: '<div style="background-color:#1a73e8; width:12px; height:12px; border-radius:50%; border:2px solid white; box-shadow:0 0 0 3px #1a73e8"></div>',
+                            iconSize: [12, 12],
+                            iconAnchor: [6, 6]
+                        })
+                    }).addTo(map);
+                    marker.bindPopup(`Waypoint ${index}<br>Lat: ${point[0].toFixed(2)}, Lng: ${point[1].toFixed(2)}`);
+                    waypointMarkers.push(marker);
+                }
+            });
+            
+            // Update the map view
+            const allPoints = [...maritimeRoutes[currentRoute], ...maritimeRoutes.capetown];
+            const bounds = L.latLngBounds(allPoints);
+            map.fitBounds(bounds);
+            
+            // Update the route line reference
+            routeLine = newRoute;
+        }
+        
+        // Function to simulate weather impact on the route
+        function simulateWeatherImpact() {
+            // In a real application, this would use actual weather data
+            const windSpeed = Math.floor(Math.random() * 5) + 15;
+            const waveHeight = (Math.random() * 1.5 + 1.5).toFixed(1);
+            
+            document.querySelectorAll('.weather-value')[0].textContent = windSpeed + ' kt';
+            document.querySelectorAll('.weather-value')[2].textContent = waveHeight + ' m';
+            
+            // Show weather alert if conditions are severe
+            if (windSpeed > 18 || waveHeight > 3.5) {
+                const alertDiv = document.createElement('div');
+                alertDiv.style.display = 'flex';
+                alertDiv.style.alignItems = 'center';
+                alertDiv.style.marginTop = '10px';
+                alertDiv.style.padding = '10px';
+                alertDiv.style.backgroundColor = '#ffebee';
+                alertDiv.style.borderRadius = '6px';
+                alertDiv.innerHTML = `
+                    <span class="status-indicator status-inactive"></span>
+                    <span>Weather alert: High winds (${windSpeed} kt) and waves (${waveHeight} m) detected. Route adjusted for safety.</span>
+                `;
+                
+                document.querySelector('.card:nth-child(5) > div').prepend(alertDiv);
+                
+                // Remove alert after 5 seconds
+                setTimeout(() => {
+                    alertDiv.remove();
+                }, 5000);
+            }
+        }
+        
+        // Initialize calculations with default values
+        updateRouteCalculations();
+        
+        // Simulate live weather data updates
+        function updateWeatherData() {
+            const windSpeed = Math.floor(Math.random() * 5) + 15;
+            const waveHeight = (Math.random() * 1.5 + 1.5).toFixed(1);
+            
+            document.querySelectorAll('.weather-value')[0].textContent = windSpeed + ' kt';
+            document.querySelectorAll('.weather-value')[2].textContent = waveHeight + ' m';
+        }
+        
+        // Update weather every 30 seconds
+        setInterval(updateWeatherData, 30000);
+    </script>
+</body>
+</html>
